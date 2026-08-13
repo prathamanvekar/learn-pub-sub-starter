@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -19,6 +21,19 @@ func main() {
 	defer conn.Close()
 	fmt.Println("Peril game server connected to RabbitMQ!")
 
+	connChan, err := conn.Channel()
+	if err != nil {
+		log.Fatalf("could not open a channel to the connection: %v", err)
+	}
+
+	err = pubsub.PublishJSON(connChan, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
+		IsPaused: true,
+	})
+	if err != nil {
+		log.Fatalf("failed to publish json: %v", err)
+	}
+		
+	
 	// wait for ctrl+c
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
