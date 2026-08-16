@@ -33,10 +33,9 @@ func main() {
 		log.Fatalf("failed to publish json: %v", err)
 	}
 		
-	
 	// wait for ctrl+c
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	<-signalChan
-	fmt.Println("RabbitMQ connection closed.")
+	fmt.Println("RabbitMQ server connection closed.")
 }
