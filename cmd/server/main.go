@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -26,16 +25,39 @@ func main() {
 		log.Fatalf("could not open a channel to the connection: %v", err)
 	}
 
-	err = pubsub.PublishJSON(connChan, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
-		IsPaused: true,
-	})
-	if err != nil {
-		log.Fatalf("failed to publish json: %v", err)
+	gamelogic.PrintServerHelp()
+
+	for true {
+		words := gamelogic.GetInput()
+		if len(words) == 0 {
+			continue
+		}
+		if words[0] == "pause" {
+			fmt.Println("Sending a pause message!")
+			err = pubsub.PublishJSON(connChan, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
+				IsPaused: true,
+			})
+			if err != nil {
+				log.Fatalf("failed to publish json: %v", err)
+			}
+
+		} else if words[0] == "resume" {
+			fmt.Println("Sending a resume message!")
+			err = pubsub.PublishJSON(connChan, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
+				IsPaused: false,
+			})
+			if err != nil {
+				log.Fatalf("failed to publish json: %v", err)
+			}
+
+		} else if words[0] == "quit" {
+			fmt.Println("Exiting!")
+			break
+
+		} else {
+			fmt.Println("me no hablo engles")
+		}
+
 	}
-		
-	// wait for ctrl+c
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
-	fmt.Println("RabbitMQ server connection closed.")
+
 }
