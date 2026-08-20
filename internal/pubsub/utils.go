@@ -24,11 +24,11 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	return nil
 }
 
-type SimpleQueueType string
+type SimpleQueueType int
 
 const (
-	Durable   SimpleQueueType = "durable"
-	Transient SimpleQueueType = "transient"
+	SimpleQueueDurable SimpleQueueType = iota
+	SimpleQueueTransient
 )
 
 func DeclareAndBind(
@@ -47,7 +47,7 @@ func DeclareAndBind(
 	durable := false
 	autoDelete := true
 	exclusive := true
-	if queueType == "durable" {
+	if queueType == SimpleQueueDurable {
 		durable = true
 		autoDelete = false
 		exclusive = false

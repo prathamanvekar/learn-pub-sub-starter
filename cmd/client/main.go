@@ -27,7 +27,7 @@ func main() {
 
 	queueName := routing.PauseKey + "." + username
 
-	_, _, err = pubsub.DeclareAndBind(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, "transient")
+	_, _, err = pubsub.DeclareAndBind(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.SimpleQueueTransient)
 	if err != nil {
 		log.Fatalf("failed to declare and bind a queue on the channel: %v", err)
 	}
