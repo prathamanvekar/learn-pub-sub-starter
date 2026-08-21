@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -64,4 +65,44 @@ func DeclareAndBind(
 	}
 
 	return connChannel, queue, nil
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	handler func(T),
+) error {
+	// Declaring and binding the exchange to the queue
+	connChan, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		log.Fatalf("failed to declare and bind a queue on the channel: %v", err)
+	}
+
+	// using the channel from above, getting a amqp delivery struct to consume the incoming queue messages
+	msgs, err := connChan.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		log.Fatalf("failed to consume: %v", err)
+	}
+
+	// go routine to process these messages as they come, unmarshalling it and using our handler function to handle it and acknowledging that we have successfully processed ths one
+	go func(){
+		defer connChan.Close()
+		for msg := range msgs {
+			var temp T
+			err := json.Unmarshal(msg.Body, &temp)
+			if err != nil {
+				log.Fatalf("failed to unmarshal: %v", err)
+			}
+			handler(temp)
+			err = msg.Ack(false)
+			if err != nil {
+				log.Fatalf("failed to acknowledge the process back: %v", err)
+			}
+		}
+	}()
+
+	return nil
 }

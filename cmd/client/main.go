@@ -27,12 +27,12 @@ func main() {
 
 	queueName := routing.PauseKey + "." + username
 
-	_, _, err = pubsub.DeclareAndBind(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.SimpleQueueTransient)
-	if err != nil {
-		log.Fatalf("failed to declare and bind a queue on the channel: %v", err)
-	}
-
 	gs := gamelogic.NewGameState(username)
+
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.SimpleQueueTransient, handlerPause(gs))
+	if err != nil {
+		log.Fatalf("failed to subscribe the queue on the channel: %v", err)
+	}
 
 	for {
 		words := gamelogic.GetInput()
