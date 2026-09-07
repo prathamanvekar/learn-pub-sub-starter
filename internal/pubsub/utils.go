@@ -67,13 +67,21 @@ func DeclareAndBind(
 	return connChannel, queue, nil
 }
 
+type AckType int
+
+const (
+	Ack AckType = iota
+	NackRequeue
+	NackDiscard
+)
+
 func SubscribeJSON[T any](
 	conn *amqp.Connection,
 	exchange,
 	queueName,
 	key string,
 	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 	// Declaring and binding the exchange to the queue
 	connChan, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
@@ -88,7 +96,7 @@ func SubscribeJSON[T any](
 	}
 
 	// go routine to process these messages as they come, unmarshalling it and using our handler function to handle it and acknowledging that we have successfully processed ths one
-	go func(){
+	go func() {
 		defer connChan.Close()
 		for msg := range msgs {
 			var temp T
@@ -96,8 +104,18 @@ func SubscribeJSON[T any](
 			if err != nil {
 				log.Fatalf("failed to unmarshal: %v", err)
 			}
-			handler(temp)
-			err = msg.Ack(false)
+			acktype := handler(temp)
+			if acktype == Ack {
+				err = msg.Ack(false)
+				fmt.Println("Acknowledged!")
+			} else if acktype == NackRequeue {
+				err = msg.Nack(false, true)
+				fmt.Println("Not Acknowledged, but Requeued!")
+			} else {
+				err = msg.Nack(false, false)
+				fmt.Println("Not Acknowledged and discarded!")
+			}
+
 			if err != nil {
 				log.Fatalf("failed to acknowledge the process back: %v", err)
 			}
