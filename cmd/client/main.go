@@ -47,7 +47,7 @@ func main() {
 		log.Fatalf("failed to subscribe the army move queue on the channel: %v", err)
 	}
 
-	warQueueName := "war"
+	warQueueName := routing.WarRecognitionsPrefix
 	warRoutingKey := routing.WarRecognitionsPrefix + ".*"
 	
 	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, warQueueName, warRoutingKey, pubsub.SimpleQueueDurable, handlerWar(gs))
