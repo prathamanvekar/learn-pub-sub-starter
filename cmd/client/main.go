@@ -42,10 +42,20 @@ func main() {
 	armyMovesQueueName := routing.ArmyMovesPrefix + "." + username
 	armyMovesRoutingKey := routing.ArmyMovesPrefix + ".*"
 
-	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, armyMovesQueueName, armyMovesRoutingKey, pubsub.SimpleQueueTransient, handlerMove(gs))
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, armyMovesQueueName, armyMovesRoutingKey, pubsub.SimpleQueueTransient, handlerMove(gs, publishCh))
 	if err != nil {
 		log.Fatalf("failed to subscribe the army move queue on the channel: %v", err)
 	}
+
+	warQueueName := "war"
+	warRoutingKey := routing.WarRecognitionsPrefix + ".*"
+	
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, warQueueName, warRoutingKey, pubsub.SimpleQueueDurable, handlerWar(gs))
+	if err != nil {
+		log.Fatalf("failed to subscribe the war queue on the channel: %v", err)
+	}
+
+	
 
 	for {
 		words := gamelogic.GetInput()
