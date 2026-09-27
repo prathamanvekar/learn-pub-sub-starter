@@ -26,11 +26,15 @@ func handlerMove(gs *gamelogic.GameState, chn *amqp.Channel) func(gamelogic.Army
 		} else if moveOutcome == gamelogic.MoveOutcomeMakeWar {
 			username := gs.GetPlayerSnap().Username
 			key := routing.WarRecognitionsPrefix + "." + username
-			pubsub.PublishJSON(chn, routing.ExchangePerilTopic, key, gamelogic.RecognitionOfWar{
+			err := pubsub.PublishJSON(chn, routing.ExchangePerilTopic, key, gamelogic.RecognitionOfWar{
 				Attacker: am.Player ,
 				Defender: gs.GetPlayerSnap(),
 			})
-			return pubsub.NackRequeue
+			if err != nil {
+				return pubsub.NackRequeue
+			}
+			return pubsub.Ack
+			
 		} else {
 			return pubsub.NackDiscard
 		}
