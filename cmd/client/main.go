@@ -50,7 +50,7 @@ func main() {
 	warQueueName := routing.WarRecognitionsPrefix
 	warRoutingKey := routing.WarRecognitionsPrefix + ".*"
 	
-	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, warQueueName, warRoutingKey, pubsub.SimpleQueueDurable, handlerWar(gs))
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, warQueueName, warRoutingKey, pubsub.SimpleQueueDurable, handlerWar(gs, publishCh))
 	if err != nil {
 		log.Fatalf("failed to subscribe the war queue on the channel: %v", err)
 	}
