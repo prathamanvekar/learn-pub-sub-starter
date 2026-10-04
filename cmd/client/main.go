@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -11,6 +12,7 @@ import (
 )
 
 func main() {
+	fmt.Println("Starting Peril client...")
 	const rabbitConnString = "amqp://guest:guest@localhost:5672/"
 
 	conn, err := amqp.Dial(rabbitConnString)
@@ -27,35 +29,43 @@ func main() {
 
 	username, err := gamelogic.ClientWelcome()
 	if err != nil {
-		log.Fatalf("failed to get username: %v", err)
+		log.Fatalf("could not get username: %v", err)
 	}
-
-	pauseQueueName := routing.PauseKey + "." + username
-
 	gs := gamelogic.NewGameState(username)
 
-	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, pauseQueueName, routing.PauseKey, pubsub.SimpleQueueTransient, handlerPause(gs))
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
+		routing.ArmyMovesPrefix+".*",
+		pubsub.SimpleQueueTransient,
+		handlerMove(gs, publishCh),
+	)
 	if err != nil {
-		log.Fatalf("failed to subscribe the pause queue on the channel: %v", err)
+		log.Fatalf("could not subscribe to army moves: %v", err)
 	}
-
-	armyMovesQueueName := routing.ArmyMovesPrefix + "." + username
-	armyMovesRoutingKey := routing.ArmyMovesPrefix + ".*"
-
-	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, armyMovesQueueName, armyMovesRoutingKey, pubsub.SimpleQueueTransient, handlerMove(gs, publishCh))
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.WarRecognitionsPrefix,
+		routing.WarRecognitionsPrefix+".*",
+		pubsub.SimpleQueueDurable,
+		handlerWar(gs, publishCh),
+	)
 	if err != nil {
-		log.Fatalf("failed to subscribe the army move queue on the channel: %v", err)
+		log.Fatalf("could not subscribe to war declarations: %v", err)
 	}
-
-	warQueueName := routing.WarRecognitionsPrefix
-	warRoutingKey := routing.WarRecognitionsPrefix + ".*"
-	
-	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, warQueueName, warRoutingKey, pubsub.SimpleQueueDurable, handlerWar(gs, publishCh))
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilDirect,
+		routing.PauseKey+"."+gs.GetUsername(),
+		routing.PauseKey,
+		pubsub.SimpleQueueTransient,
+		handlerPause(gs),
+	)
 	if err != nil {
-		log.Fatalf("failed to subscribe the war queue on the channel: %v", err)
+		log.Fatalf("could not subscribe to pause: %v", err)
 	}
-
-	
 
 	for {
 		words := gamelogic.GetInput()
@@ -64,20 +74,23 @@ func main() {
 		}
 		switch words[0] {
 		case "move":
-			res, err := gs.CommandMove(words)
+			mv, err := gs.CommandMove(words)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
 
-			// TODO: publish the move
-			err = pubsub.PublishJSON(publishCh, routing.ExchangePerilTopic, armyMovesRoutingKey, res)
+			err = pubsub.PublishJSON(
+				publishCh,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+mv.Player.Username,
+				mv,
+			)
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
 				continue
 			}
-			fmt.Printf("Moved %v units to %s\n", len(res.Units), res.ToLocation)
-
+			fmt.Printf("Moved %v units to %s\n", len(mv.Units), mv.ToLocation)
 		case "spawn":
 			err = gs.CommandSpawn(words)
 			if err != nil {
@@ -98,4 +111,17 @@ func main() {
 			fmt.Println("unknown command")
 		}
 	}
+}
+
+func publishGameLog(publishCh *amqp.Channel, username, msg string) error {
+	return pubsub.PublishGob(
+		publishCh,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug+"."+username,
+		routing.GameLog{
+			Username:    username,
+			CurrentTime: time.Now(),
+			Message:     msg,
+		},
+	)
 }
