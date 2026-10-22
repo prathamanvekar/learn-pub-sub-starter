@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -24,6 +27,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not create channel: %v", err)
 	}
+	defer publishCh.Close()
 
 	err = pubsub.SubscribeGob(
 		conn,
@@ -34,13 +38,20 @@ func main() {
 		handlerLogs(),
 	)
 	if err != nil {
-		log.Fatalf("could not starting consuming logs: %v", err)
+		log.Fatalf("could not start consuming logs: %v", err)
 	}
 
 	gamelogic.PrintServerHelp()
 
 	for {
 		words := gamelogic.GetInput()
+		if words == nil {
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+			<-sigChan
+			log.Println("goodbye")
+			return
+		}
 		if len(words) == 0 {
 			continue
 		}
@@ -56,10 +67,10 @@ func main() {
 				},
 			)
 			if err != nil {
-				log.Printf("could not publish time: %v", err)
+				log.Printf("could not publish paused state: %v", err)
 			}
 		case "resume":
-			fmt.Println("Publishing resumes game state")
+			fmt.Println("Publishing resumed game state")
 			err = pubsub.PublishJSON(
 				publishCh,
 				routing.ExchangePerilDirect,
@@ -69,7 +80,7 @@ func main() {
 				},
 			)
 			if err != nil {
-				log.Printf("could not publish time: %v", err)
+				log.Printf("could not publish resumed state: %v", err)
 			}
 		case "quit":
 			log.Println("goodbye")

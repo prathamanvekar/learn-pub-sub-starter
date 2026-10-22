@@ -27,6 +27,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not create channel: %v", err)
 	}
+	defer publishCh.Close()
 
 	username, err := gamelogic.ClientWelcome()
 	if err != nil {
@@ -70,6 +71,9 @@ func main() {
 
 	for {
 		words := gamelogic.GetInput()
+		if words == nil {
+			return
+		}
 		if len(words) == 0 {
 			continue
 		}

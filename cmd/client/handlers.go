@@ -50,18 +50,7 @@ func handlerWar(gs *gamelogic.GameState, publishCh *amqp.Channel) func(dw gamelo
 			return pubsub.NackRequeue
 		case gamelogic.WarOutcomeNoUnits:
 			return pubsub.NackDiscard
-		case gamelogic.WarOutcomeOpponentWon:
-			err := publishGameLog(
-				publishCh,
-				gs.GetUsername(),
-				fmt.Sprintf("%s won a war against %s", winner, loser),
-			)
-			if err != nil {
-				fmt.Printf("error: %s\n", err)
-				return pubsub.NackRequeue
-			}
-			return pubsub.Ack
-		case gamelogic.WarOutcomeYouWon:
+		case gamelogic.WarOutcomeOpponentWon, gamelogic.WarOutcomeYouWon:
 			err := publishGameLog(
 				publishCh,
 				gs.GetUsername(),
